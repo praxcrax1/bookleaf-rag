@@ -1,10 +1,12 @@
+from typing import Optional
+import logging
+import uvicorn
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
-from typing import Optional
-import uvicorn
-import logging
 from langchain_pinecone import PineconeVectorStore
+
 from config import config
 from document_processor import DocumentProcessor
 from vector_store import VectorStoreManager
@@ -16,47 +18,59 @@ logger = logging.getLogger(__name__)
 
 class SimpleRAGSystem:
     def __init__(self):
+        """Initialize the RAG system with required components"""
         self.processor = DocumentProcessor(config)
         self.vector_store_manager = VectorStoreManager(config)
-        # Initialize components once on startup
+        # Initialize system state
+        self.vector_store = None
+        self.retriever = None
+        self.agent = None
+        # Connect to existing index on startup
         self._setup_system()
     
-    def _setup_system(self):
-        """Setup the system - connect to existing Pinecone index"""
+    def _initialize_components(self, vector_store: PineconeVectorStore) -> bool:
+        """Initialize or update retriever and agent components from vector store"""
         try:
-            self.vector_store = PineconeVectorStore.from_existing_index(
+            self.vector_store = vector_store
+            self.retriever = self.vector_store_manager.get_retriever(self.vector_store)
+            self.agent = ValidationAgent(config, self.retriever, self.vector_store)
+            return True
+        except Exception as e:
+            logger.error(f"Component initialization error: {e}")
+            return False
+    
+    def _setup_system(self) -> None:
+        """Setup the system by connecting to existing Pinecone index"""
+        try:
+            vector_store = PineconeVectorStore.from_existing_index(
                 index_name=config.index_name,
                 embedding=self.vector_store_manager.embeddings
             )
-            self.retriever = self.vector_store_manager.get_retriever(self.vector_store)
-            self.agent = ValidationAgent(config, self.retriever, self.vector_store)
-            logger.info("System ready - connected to Pinecone index")
+            if self._initialize_components(vector_store):
+                logger.info("System ready - connected to Pinecone index")
         except Exception as e:
             logger.error(f"Setup error: {e}")
-            self.vector_store = None
-            self.agent = None
     
     def upload_document(self, doc_url: str) -> bool:
-        """Upload a new document to Pinecone"""
+        """Process and upload a new document to Pinecone"""
         try:
-            # Process document
+            # Process document through pipeline
             documents = self.processor.extract_google_doc(doc_url)
             chunks = self.processor.hierarchical_chunking(documents)
             enhanced_chunks = self.processor.enhance_metadata(chunks)
             
-            # Store in Pinecone
-            self.vector_store = self.vector_store_manager.store_documents(enhanced_chunks)
-            self.retriever = self.vector_store_manager.get_retriever(self.vector_store)
-            self.agent = ValidationAgent(config, self.retriever, self.vector_store)
-            
-            logger.info("Document uploaded successfully")
-            return True
+            # Store in Pinecone and initialize components
+            vector_store = self.vector_store_manager.store_documents(enhanced_chunks)
+            if self._initialize_components(vector_store):
+                logger.info("Document uploaded successfully")
+                return True
+            return False
         except Exception as e:
             logger.error(f"Upload error: {e}")
             return False
     
     def query(self, question: str) -> str:
-        """Query the documents in Pinecone"""
+        """Query the documents in Pinecone using the validation agent"""
         if not self.agent:
             return "No documents found. Please upload a document first."
         
@@ -84,18 +98,22 @@ app.add_middleware(
 # Global system instance - connects to Pinecone on startup
 rag_system = SimpleRAGSystem()
 
-# Pydantic models
+# Pydantic models for API requests and responses
 class UploadRequest(BaseModel):
+    """Request model for document upload endpoint"""
     doc_url: HttpUrl
     
 class QueryRequest(BaseModel):
+    """Request model for query endpoint"""
     question: str
 
 class UploadResponse(BaseModel):
+    """Response model for document upload endpoint"""
     success: bool
     message: str
 
 class QueryResponse(BaseModel):
+    """Response model for query endpoint"""
     answer: str
     success: bool
 
@@ -108,31 +126,32 @@ async def root():
 
 @app.post("/upload", response_model=UploadResponse)
 async def upload_document(request: UploadRequest):
-    """Upload a document to Pinecone"""
+    """Upload a Google Doc to the Pinecone vector store"""
     success = rag_system.upload_document(str(request.doc_url))
     
-    if success:
-        return UploadResponse(success=True, message="Document uploaded successfully!")
-    else:
-        return UploadResponse(success=False, message="Failed to upload document")
+    return UploadResponse(
+        success=success, 
+        message="Document uploaded successfully!" if success else "Failed to upload document"
+    )
 
 
 @app.post("/query", response_model=QueryResponse)
 async def query_documents(request: QueryRequest):
-    """Query the documents"""
-    answer = rag_system.query(request.question)
-    
-    return QueryResponse(
-        answer=answer,
-        success=True
-    )
+    """Query the RAG system with a question"""
+    try:
+        answer = rag_system.query(request.question)
+        return QueryResponse(answer=answer, success=True)
+    except Exception as e:
+        logger.error(f"API query error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
+    # Start the FastAPI server
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=True,  # Set to False in production
         log_level="info"
     )
