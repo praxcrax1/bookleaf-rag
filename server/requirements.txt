@@ -1,0 +1,16 @@
+langchain
+langchain-google-genai
+langchain-pinecone
+langgraph
+google-generativeai
+pinecone-client
+python-dotenv
+pypdf
+unstructured
+tiktoken
+PyPDF2
+requests
+fastapi
+uvicorn
+pydantic
+langchain-community
