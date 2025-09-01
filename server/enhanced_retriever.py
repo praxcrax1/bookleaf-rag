@@ -1,7 +1,7 @@
 import re
 import time
 import logging
-from typing import List, Dict
+from typing import List
 from langchain.schema import Document
 from config import Config
 

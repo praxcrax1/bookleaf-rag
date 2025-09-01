@@ -4,7 +4,7 @@ from langchain.schema import Document
 import PyPDF2
 import io
 import requests
-from typing import List, Dict
+from typing import List
 import re
 from config import Config
 
