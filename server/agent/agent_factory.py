@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 config = Config()
 
-def create_agent(user_id=None, llm_provider="gemini"):
+def create_agent(user_id=None):
     """
     Create a conversational AI agent with access to multiple data sources and reasoning capabilities.
     The agent can intelligently decide when to use the validation agent (RAG) and other tools.
