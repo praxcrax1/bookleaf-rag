@@ -13,7 +13,6 @@ class QueryRequest(BaseModel):
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    author_id: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr

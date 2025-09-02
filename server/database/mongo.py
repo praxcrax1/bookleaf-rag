@@ -28,15 +28,20 @@ async def get_or_create_user(author_id: str):
         return new_user
     return user
 
-async def register_user(email: str, password: str, author_id: str = None):
+async def register_user(email: str, password: str):
     existing = await users_collection.find_one({"email": email})
     if existing:
-        return False, "Email already registered"
-    user_doc = {"email": email, "password": password}
-    if author_id:
-        user_doc["author_id"] = author_id
-    await users_collection.insert_one(user_doc)
-    return True, "User registered successfully"
+        return False, "Email already registered", None
+    
+    user_doc = {
+        "email": email, 
+        "password": password
+    }
+    
+    # MongoDB automatically generates _id, we'll use that as user_id
+    result = await users_collection.insert_one(user_doc)
+    user_id = str(result.inserted_id)
+    return True, "User registered successfully", user_id
 
 async def authenticate_user(email: str, password: str):
     user = await users_collection.find_one({"email": email})
@@ -44,12 +49,17 @@ async def authenticate_user(email: str, password: str):
         return None
     return user
 
-async def get_user_book_summary(user_id: str):
-    """Get a comprehensive summary of all books for a given user_id (author_id)."""
+def get_user_book_summary(user_id: str):
+    """Get a comprehensive summary of all books for a given user_id (author_id) - SYNCHRONOUS VERSION."""
     try:
+        # Use sync pymongo instead of motor for this simple operation
+        import pymongo
+        client = pymongo.MongoClient(MONGO_URI)
+        db = client[DB_NAME]
+        books_collection = db[getattr(config, 'collection_name', 'books')]
+        
         # Find all books for this user
-        cursor = books_collection.find({"author_id": user_id})
-        books = await cursor.to_list(length=None)  # Get all books
+        books = list(books_collection.find({"author_id": user_id}))
         
         if not books:
             return {
@@ -81,6 +91,8 @@ async def get_user_book_summary(user_id: str):
         if status_counts:
             status_summary = ", ".join([f"{count} {status}" for status, count in status_counts.items()])
             summary_text += f"Status breakdown: {status_summary}."
+        
+        client.close()  # Clean up connection
         
         return {
             "user_id": user_id,

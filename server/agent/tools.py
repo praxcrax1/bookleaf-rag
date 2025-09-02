@@ -42,15 +42,16 @@ def user_book_summary_tool(
 ) -> str:
     """Get a comprehensive summary of all books for a specific user ID. Returns book details including titles, statuses, and stage notes. Use when users ask about their books, writing progress, or book status."""
     try:
-        # Since this is an async function, we need to run it in an event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(get_user_book_summary(user_id))
-        loop.close()
+        # Simple synchronous call - no async complications!
+        result = get_user_book_summary(user_id)
         
-        # Format the result for the agent
+        # Handle the case where user has no books
         if "error" in result:
-            return f"Error retrieving book summary for user {user_id}: {result['error']}"
+            return f"I encountered an issue retrieving your book information: {result['error']}"
+        
+        # Check if user has no books
+        if result['total_books'] == 0:
+            return "You currently don't have any books in your account. You can start by uploading a document or creating a new book project!"
         
         summary = result['summary']
         books_info = []
@@ -61,18 +62,15 @@ def user_book_summary_tool(
                 book_info += f"\n  Notes: {book['stage_notes']}"
             books_info.append(book_info)
         
-        response = f"## Book Summary for User {user_id}\n\n"
+        response = f"## Your Book Summary\n\n"
         response += f"{summary}\n\n"
         
         if books_info:
-            response += "### Book Details:\n"
+            response += "### Your Books:\n"
             response += "\n".join(books_info)
         
         return response
         
     except Exception as e:
-        return f"Failed to retrieve book summary for user {user_id}: {str(e)}"
+        return f"I'm sorry, but I couldn't retrieve your book information at the moment. Please try again later or contact support if the issue persists."
 
-
-# Tools list for the agent
-TOOLS = [document_retrieval_tool, user_book_summary_tool]

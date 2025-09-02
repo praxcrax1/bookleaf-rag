@@ -25,9 +25,9 @@ class Config:
     score_threshold: float = float(os.getenv("SCORE_THRESHOLD", "0.7"))
     
     # Model settings
-    model_name: str = "gemini-2.5-flash"  # Gemini chat model
-    embedding_model: str = "models/embedding-001"  # Gemini embedding model
-    
+    model_name: str = (os.getenv("MODEL_NAME", "gemini-2.5-flash"))  # Gemini chat model
+    embedding_model: str = (os.getenv("EMBEDDING_MODEL", "models/embedding-001"))  # Gemini embedding model
+
     # Validation settings
     confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.8"))
 

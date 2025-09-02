@@ -71,11 +71,15 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     user_id = current_user.get("user_id")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID not found in token")
+    
     try:
         logger.info(f"Query request: {query[:100]} for user {user_id}")
         
         # Create agent with user_id for this specific query
-        agent_executor = create_agent(user_id=user_id)
+        agent_executor = create_agent(user_id=user_id, query=query)
         
         response = await asyncio.to_thread(
             agent_executor.invoke,
@@ -83,25 +87,27 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
         )
         
         answer = response.get("output", "I apologize, but I couldn't generate a response.")
-        intermediate_steps = response.get("intermediate_steps", []) if getattr(request, "verbose", False) else []
+        intermediate_steps = response.get("intermediate_steps", [])
         
-        reasoning_steps = []
-        if request.verbose and intermediate_steps:
+        reasoning_steps = None
+        if intermediate_steps:
+            reasoning_steps = []
             for step in intermediate_steps:
                 if len(step) >= 2:
                     action = step[0]
                     observation = step[1]
                     reasoning_steps.append({
-                        "tool": getattr(action, 'tool', "unknown"),
-                        "input": getattr(action, 'tool_input', {}),
+                        "tool": action.tool if hasattr(action, 'tool') else "unknown",
+                        "input": action.tool_input if hasattr(action, 'tool_input') else {},
                         "output": observation[:500] + "..." if len(str(observation)) > 500 else str(observation)
                     })
         
         logger.info("Successfully processed query request")
+
         return QueryResponse(
             answer=answer,
             query=query,
-            reasoning_steps=reasoning_steps if request.verbose else None,
+            reasoning_steps=reasoning_steps,
             success=True
         )
     except Exception as e:
@@ -111,16 +117,25 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
 
 @app.post("/register", response_model=AuthResponse)
 async def register_endpoint(request: RegisterRequest):
-    success, message = await register_user(request.email, request.password, request.author_id)
-    return AuthResponse(success=success, message=message)
+    success, message, user_id = await register_user(request.email, request.password)
+    
+    if success:
+        # Issue JWT token immediately upon registration
+        payload = {"user_id": user_id, "email": request.email}
+        token = jwt.encode(payload, config.jwt_secret, algorithm=config.jwt_algorithm)
+        return AuthResponse(success=True, message=message, token=token)
+    else:
+        return AuthResponse(success=False, message=message)
 
 @app.post("/login", response_model=AuthResponse)
 async def login_endpoint(request: LoginRequest):
     user = await authenticate_user(request.email, request.password)
     if not user:
         return AuthResponse(success=False, message="Invalid credentials")
-    # Issue JWT token
-    payload = {"user_id": str(user.get("author_id", "")), "email": user["email"]}
+    
+    user_id = str(user.get("_id"))
+    
+    payload = {"user_id": user_id, "email": user["email"]}
     token = jwt.encode(payload, config.jwt_secret, algorithm=config.jwt_algorithm)
     return AuthResponse(success=True, message="Login successful", token=token)
 
