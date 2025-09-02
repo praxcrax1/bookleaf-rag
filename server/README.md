@@ -74,46 +74,489 @@ python main.py
 
 The server will start at `http://localhost:8000`. Visit `http://localhost:8000/docs` for interactive API documentation.
 
+## 📚 API Documentation
+
+The RAG system provides a comprehensive REST API with detailed documentation available at `http://localhost:8000/docs` (Swagger UI) and `http://localhost:8000/redoc` (ReDoc).
+
+### Authentication
+
+Most endpoints require JWT authentication. Include the token in the Authorization header:
+```bash
+Authorization: Bearer <your_jwt_token>
+```
+
 ### API Endpoints
 
-**Simple 3-endpoint system:**
+#### 1. **Health Check**
+**`GET /`**
 
-1. **`GET /`** - Health check
-   ```bash
-   curl http://localhost:8000/
-   ```
+Simple health check to verify the system is running.
 
-2. **`POST /upload`** - Upload a Google Document (do this once)
-   ```bash
-   curl -X POST "http://localhost:8000/upload" \
-     -H "Content-Type: application/json" \
-     -d '{"doc_url": "https://docs.google.com/document/d/YOUR_DOCUMENT_ID/edit"}'
-   ```
+**Request:**
+```bash
+curl http://localhost:8000/
+```
 
-3. **`POST /query`** - Query the uploaded documents (use anytime)
-   ```bash
-   curl -X POST "http://localhost:8000/query" \
-     -H "Content-Type: application/json" \
-     -d '{"question": "What are the benefits of the Bestseller Breakthrough Package?"}'
-   ```
+**Response:**
+```json
+{
+  "status": "RAG System Ready"
+}
+```
 
-### Python Client Example
+---
+
+#### 2. **User Registration**
+**`POST /register`**
+
+Register a new user account.
+
+**Request Payload:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "author_id": "unique_author_identifier"
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8000/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john.doe@example.com",
+    "password": "mySecurePassword123",
+    "author_id": "john_doe_001"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "User registered successfully",
+  "token": null
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "User already exists",
+  "token": null
+}
+```
+
+---
+
+#### 3. **User Login**
+**`POST /login`**
+
+Authenticate user and receive JWT token.
+
+**Request Payload:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8000/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john.doe@example.com",
+    "password": "mySecurePassword123"
+  }'
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "Invalid credentials",
+  "token": null
+}
+```
+
+---
+
+#### 4. **Document Upload**
+**`POST /upload`**
+
+Upload a Google Document to the vector store for processing.
+
+**Request Payload:**
+```json
+{
+  "doc_url": "https://docs.google.com/document/d/DOCUMENT_ID/edit"
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8000/upload" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "doc_url": "https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit"
+  }'
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Document uploaded successfully!",
+  "document_id": null,
+  "chunks_processed": null
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "Failed to upload document: Document not accessible",
+  "document_id": null,
+  "chunks_processed": null
+}
+```
+
+---
+
+#### 5. **Query Documents**
+**`POST /query`** (🔐 Auth Required)
+
+Query the RAG system with intelligent document retrieval and AI-powered responses.
+
+**Request Payload:**
+```json
+{
+  "question": "Your question here",
+  "verbose": false
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8000/query" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "question": "What are the benefits of the Bestseller Breakthrough Package?",
+    "verbose": true
+  }'
+```
+
+**Success Response (verbose=false):**
+```json
+{
+  "answer": "The Bestseller Breakthrough Package includes 5 free author copies, free shipping for Indian authors, a 20% discount coupon code for future orders, and priority customer support. The package also provides enhanced marketing materials and promotional tools to help boost your book's visibility.",
+  "query": "What are the benefits of the Bestseller Breakthrough Package?",
+  "reasoning_steps": null,
+  "success": true,
+  "confidence_score": null,
+  "sources_used": null
+}
+```
+
+**Success Response (verbose=true):**
+```json
+{
+  "answer": "The Bestseller Breakthrough Package includes 5 free author copies, free shipping for Indian authors, a 20% discount coupon code for future orders, and priority customer support.",
+  "query": "What are the benefits of the Bestseller Breakthrough Package?",
+  "reasoning_steps": [
+    {
+      "tool": "document_retrieval_tool",
+      "input": {
+        "query": "Bestseller Breakthrough Package benefits"
+      },
+      "output": "Retrieved 3 relevant document chunks about package benefits..."
+    },
+    {
+      "tool": "user_book_summary_tool",
+      "input": {
+        "user_query": "package benefits"
+      },
+      "output": "Found user-specific book information and package details..."
+    }
+  ],
+  "success": true,
+  "confidence_score": null,
+  "sources_used": null
+}
+```
+
+**Error Response:**
+```json
+{
+  "detail": "Query cannot be empty"
+}
+```
+
+---
+
+#### 6. **Delete Chat History**
+**`DELETE /query/delete`** (🔐 Auth Required)
+
+Delete all chat history for the authenticated user.
+
+**Example Request:**
+```bash
+curl -X DELETE "http://localhost:8000/query/delete" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "message": "Deleted 15 chat history records."
+}
+```
+
+**No History Response:**
+```json
+{
+  "status": "not_found",
+  "message": "No chat history found for user."
+}
+```
+
+**Error Response:**
+```json
+{
+  "detail": "User ID not found in token"
+}
+```
+
+---
+
+### HTTP Status Codes
+
+The API uses standard HTTP status codes:
+
+| Status Code | Description |
+|-------------|-------------|
+| `200` | Success - Request completed successfully |
+| `400` | Bad Request - Invalid request payload or parameters |
+| `401` | Unauthorized - Invalid or missing authentication token |
+| `403` | Forbidden - User doesn't have permission for this resource |
+| `404` | Not Found - Requested resource doesn't exist |
+| `422` | Unprocessable Entity - Request validation failed |
+| `500` | Internal Server Error - Server encountered an error |
+
+---
+
+### Request/Response Headers
+
+**Required Headers for Protected Endpoints:**
+```http
+Content-Type: application/json
+Authorization: Bearer <jwt_token>
+```
+
+**Response Headers:**
+```http
+Content-Type: application/json
+X-Process-Time: <processing_time_ms>
+```
+
+---
+
+### Error Response Format
+
+All error responses follow this consistent format:
+
+```json
+{
+  "detail": "Error message describing what went wrong",
+  "error_type": "validation_error|authentication_error|server_error",
+  "timestamp": "2025-09-02T10:30:00Z",
+  "path": "/query",
+  "request_id": "req_abc123"
+}
+```
+
+**Example Error Responses:**
+
+**400 Bad Request:**
+```json
+{
+  "detail": "Query cannot be empty"
+}
+```
+
+**401 Unauthorized:**
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+**422 Validation Error:**
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "email"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    }
+  ]
+}
+```
+
+---
+
+### Advanced Usage Examples
+
+#### Full Authentication Flow
 
 ```python
 import requests
+import json
 
-# Upload document once
-upload_response = requests.post("http://localhost:8000/upload", json={
+base_url = "http://localhost:8000"
+
+# 1. Register a new user
+register_response = requests.post(f"{base_url}/register", json={
+    "email": "author@example.com",
+    "password": "securepassword123",
+    "author_id": "author_001"
+})
+
+if register_response.json()["success"]:
+    print("User registered successfully")
+
+# 2. Login to get JWT token
+login_response = requests.post(f"{base_url}/login", json={
+    "email": "author@example.com",
+    "password": "securepassword123"
+})
+
+token = login_response.json()["token"]
+headers = {"Authorization": f"Bearer {token}"}
+
+# 3. Upload a document
+upload_response = requests.post(f"{base_url}/upload", json={
     "doc_url": "https://docs.google.com/document/d/YOUR_DOCUMENT_ID/edit"
 })
 
-# Query anytime
-query_response = requests.post("http://localhost:8000/query", json={
-    "question": "How many author copies do I get?"
-})
+# 4. Query with authentication
+query_response = requests.post(f"{base_url}/query", 
+    headers=headers,
+    json={
+        "question": "What's my book status?",
+        "verbose": True
+    }
+)
 
-answer = query_response.json()["answer"]
-print(answer)
+result = query_response.json()
+print(f"Answer: {result['answer']}")
+```
+
+#### Batch Document Processing
+
+```python
+import requests
+import asyncio
+import aiohttp
+
+async def upload_documents(doc_urls):
+    """Upload multiple documents concurrently"""
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for url in doc_urls:
+            task = session.post("http://localhost:8000/upload", 
+                              json={"doc_url": url})
+            tasks.append(task)
+        
+        responses = await asyncio.gather(*tasks)
+        return [await r.json() for r in responses]
+
+# Usage
+doc_urls = [
+    "https://docs.google.com/document/d/doc1/edit",
+    "https://docs.google.com/document/d/doc2/edit",
+    "https://docs.google.com/document/d/doc3/edit"
+]
+
+results = asyncio.run(upload_documents(doc_urls))
+```
+
+#### Advanced Query Examples
+
+```python
+# Book status inquiry
+response = requests.post("http://localhost:8000/query",
+    headers=headers,
+    json={
+        "question": "What's the current status of my book project?",
+        "verbose": True
+    }
+)
+
+# Package comparison
+response = requests.post("http://localhost:8000/query",
+    headers=headers,
+    json={
+        "question": "Compare the benefits between Bestseller Breakthrough and Premium packages",
+        "verbose": False
+    }
+)
+
+# Specific feature inquiry
+response = requests.post("http://localhost:8000/query",
+    headers=headers,
+    json={
+        "question": "How many author copies do I get and what are the shipping costs?",
+        "verbose": True
+    }
+)
+```
+
+---
+
+### Rate Limiting
+
+Current rate limits per user:
+- **Upload endpoint**: 10 requests per minute
+- **Query endpoint**: 100 requests per minute  
+- **Auth endpoints**: 20 requests per minute
+
+Rate limit headers included in responses:
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1693737600
+```
+
+---
+
+### Webhook Integration (Future Feature)
+
+Coming soon - webhook support for real-time notifications:
+
+```json
+{
+  "webhook_url": "https://your-app.com/webhooks/rag-updates",
+  "events": ["document.processed", "query.completed"],
+  "secret": "your_webhook_secret"
+}
 ```
 
 ## 📊 System Architecture
