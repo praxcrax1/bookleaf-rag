@@ -32,7 +32,7 @@ def retriever(query, tab_filter=None):
 validation_agent = ValidationAgent(config, retriever, vector_store)
 
 @tool
-def document_retrieval_tool(query: str, tab_filter: str = None) -> str:
+def document_retrieval_tool(query: str, tab_filter: str | None = None) -> str:
     """Search and validate documents using the RAG validation agent. Use for queries requiring document retrieval and validation."""
     return validation_agent.invoke(query)
 
