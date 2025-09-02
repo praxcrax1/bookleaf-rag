@@ -9,7 +9,7 @@ from langchain_pinecone import PineconeVectorStore
 from config import config
 from document_processor import DocumentProcessor
 from vector_store import VectorStoreManager
-from validation_agent import ValidationAgent
+from agent import create_agent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,10 +20,10 @@ class SimpleRAGSystem:
         """Initialize the RAG system with required components"""
         self.processor = DocumentProcessor(config)
         self.vector_store_manager = VectorStoreManager(config)
+        self.agent_executor = create_agent()
         # Initialize system state
         self.vector_store = None
         self.retriever = None
-        self.agent = None
         # Connect to existing index on startup
         self._setup_system()
     
@@ -32,7 +32,6 @@ class SimpleRAGSystem:
         try:
             self.vector_store = vector_store
             self.retriever = self.vector_store_manager.get_retriever(self.vector_store)
-            self.agent = ValidationAgent(config, self.retriever, self.vector_store)
             return True
         except Exception as e:
             logger.error(f"Component initialization error: {e}")
@@ -69,12 +68,12 @@ class SimpleRAGSystem:
             return False
     
     def query(self, question: str) -> str:
-        """Query the documents in Pinecone using the validation agent"""
-        if not self.agent:
-            return "No documents found. Please upload a document first."
-        
+        """Query the documents using the new agent executor"""
+        if not self.agent_executor:
+            return "Agent not initialized. Please upload a document first."
         try:
-            return self.agent.invoke(question)
+            result = self.agent_executor.invoke({"input": question})
+            return result["output"] if "output" in result else str(result)
         except Exception as e:
             logger.error(f"Query error: {e}")
             return f"Error processing query: {str(e)}"

@@ -146,18 +146,13 @@ class ValidationAgent:
         user_query = state["messages"][-1].content
         documents = state["retrieved_docs"]
         
-        if not documents:
-            logger.warning("No documents retrieved for grading")
-            return {
-                "reasoning": "No documents retrieved. Need to request clarification.",
-                "confirmed_docs": []
-            }
-        
         logger.info(f"Grading {len(documents)} documents for relevance")
-        
+        # Log document content and metadata for debugging
+        for i, doc in enumerate(documents):
+            logger.info(f"Doc {i+1} content: {doc.page_content[:300]}")
+            logger.info(f"Doc {i+1} metadata: {doc.metadata}")
         # Step 1: First filter documents with quick keyword-based pre-filtering
         prefiltered_docs = self._keyword_prefilter(user_query, documents)
-        
         # If we have enough documents after pre-filtering, skip the LLM grading
         if len(prefiltered_docs) >= 3:
             logger.info(f"Pre-filtering found {len(prefiltered_docs)} relevant documents, skipping LLM grading")
@@ -167,7 +162,21 @@ class ValidationAgent:
                 "reasoning": "\n".join(reasoning),
                 "needs_confirmation": False
             }
-            
+        # If we have some prefiltered docs, grade those
+        elif len(prefiltered_docs) > 0:
+            logger.info(f"Pre-filtering found {len(prefiltered_docs)} docs, sending to LLM for grading")
+            graded_docs, reasoning = self._batch_grade_documents(user_query, prefiltered_docs)
+        # If no prefiltered docs, grade all documents
+        elif len(documents) > 0:
+            logger.info("No prefiltered docs, sending all documents to LLM for grading")
+            graded_docs, reasoning = self._batch_grade_documents(user_query, documents)
+        else:
+            logger.warning("No documents retrieved for grading")
+            return {
+                "reasoning": "No documents retrieved. Need to request clarification.",
+                "confirmed_docs": []
+            }
+        
         # Step 2: Use batched LLM grading if we have fewer documents than a threshold
         # or pre-filtering didn't find enough documents
         if len(documents) <= 5:
@@ -395,8 +404,8 @@ class ValidationAgent:
         
         Format your response as a JSON array with one object per document:
         [
-            {"document_id": 1, "score": 0.8, "reason": "Contains specific information about X", "is_relevant": true},
-            {"document_id": 2, "score": 0.2, "reason": "Not related to the query", "is_relevant": false},
+            {{"document_id": 1, "score": 0.8, "reason": "Contains specific information about X", "is_relevant": true}},
+            {{"document_id": 2, "score": 0.2, "reason": "Not related to the query", "is_relevant": false}},
             ...
         ]
         """)
