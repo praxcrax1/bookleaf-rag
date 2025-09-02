@@ -127,10 +127,9 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
             status_code=400,
             detail="Query cannot be empty"
         )
-    author_id = current_user.get("user_id")
-    user_books = await get_user_books(author_id)
+    user_id = current_user.get("user_id")
     try:
-        logger.info(f"Query request: {query[:100]} for user {author_id}")
+        logger.info(f"Query request: {query[:100]} for user {user_id}")
         response = await asyncio.to_thread(
             rag_system.agent_executor.invoke,
             {"input": query}
