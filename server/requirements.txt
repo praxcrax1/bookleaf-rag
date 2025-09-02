@@ -20,3 +20,4 @@ python-jose
 pydantic[email]
 passlib[bcrypt]
 langchain_mongodb
+motor
