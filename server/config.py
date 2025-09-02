@@ -28,8 +28,6 @@ class Config:
     model_name: str = (os.getenv("MODEL_NAME", "gemini-2.5-flash"))  # Gemini chat model
     embedding_model: str = (os.getenv("EMBEDDING_MODEL", "models/embedding-001"))  # Gemini embedding model
 
-    # Validation settings
-    confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.8"))
 
     # JWT/Auth settings
     jwt_secret: str = os.getenv("JWT_SECRET", "your-secret-key")

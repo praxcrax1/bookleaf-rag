@@ -31,12 +31,18 @@ export function ChatWindow() {
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (sending) {
-      queueMicrotask(() => {
-        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
-      })
+    // Ensure scrolling happens after DOM updates
+    const scrollToBottom = () => {
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight
+      }
     }
-  }, [sending])
+    
+    scrollToBottom()
+    // Also add a delayed scroll to ensure content is fully rendered
+    const timeoutId = setTimeout(scrollToBottom, 100)
+    return () => clearTimeout(timeoutId)
+  }, [messages.length, sending])
 
   async function sendMessage() {
     const question = input.trim()
@@ -89,9 +95,7 @@ export function ChatWindow() {
       ])
     } finally {
       setSending(false)
-      queueMicrotask(() => {
-        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
-      })
+      // Removed duplicate scrolling code since the useEffect will handle it
     }
   }
 
@@ -121,10 +125,10 @@ export function ChatWindow() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col">
+    <div className="flex h-[calc(100vh-70px)] flex-col overflow-hidden">
       <div
         ref={listRef}
-        className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4"
+        className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4 relative"
         aria-live="polite"
         aria-busy={sending}
       >
@@ -248,7 +252,7 @@ export function ChatWindow() {
         )}
       </div>
 
-      <div className="border-t bg-white">
+      <div className="border-t bg-white flex-shrink-0">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-2 p-4">
           <Input
             placeholder="Type your question about Bookleaf Publishing..."

@@ -36,9 +36,10 @@ def create_agent(user_id=None, query=None):
         )
         logger.info(f"Using Google Gemini model for customer care: {config.model_name}")
 
-        def faq_support_tool(query: str, tab_filter: str = None):
+        def faq_support_tool(query: str):
             """Handle FAQ and general customer support queries"""
-            return document_retrieval_tool.invoke({"query": query, "tab_filter": tab_filter})
+            # Direct retrieval using vector store
+            return document_retrieval_tool.invoke({"query": query, "tab_filter": None})
         
         def user_books_lookup_tool(user_id: str):
             """Look up user's books and account information"""
