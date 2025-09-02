@@ -29,14 +29,14 @@ def retriever(query, tab_filter=None):
 # Instantiate validation agent (RAG tool)
 validation_agent = ValidationAgent(config, retriever, vector_store)
 
-def validation_rag_tool(query: str, tab_filter: str = None):
+def document_retrieval_tool(query: str, tab_filter: str = None):
     """Use the validation agent to retrieve documents."""
     return validation_agent.invoke(query)
 
 # Define LangChain Tool
-validation_rag = Tool(
-    name="validation_rag",
-    func=validation_rag_tool,
+document_retrieval = Tool(
+    name="document_retrieval",
+    func=document_retrieval_tool,
     description=(
         "Search and validate documents using the RAG validation agent. "
         "Use for queries requiring document retrieval and validation."
@@ -44,4 +44,4 @@ validation_rag = Tool(
 )
 
 # Add more tools here as needed
-TOOLS = [validation_rag]
+TOOLS = [document_retrieval]

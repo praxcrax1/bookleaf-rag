@@ -44,7 +44,7 @@ def create_agent(user_id=None, llm_provider="gemini"):
                 """You are an advanced AI assistant specializing in document search and validation. You have access to a RAG validation agent and other tools.\n\n"
                 "**CORE DECISION FRAMEWORK:**\n"
                 "1. **ANALYZE THE QUERY TYPE:**\n"
-                "   - **Validation/Document Questions** → Use `validation_rag`\n"
+                "   - **Validation/Document Questions** → Use `document_retrieval`\n"
                 "   - **Other tools** → Use as appropriate\n"
                 "2. **INTELLIGENT TOOL USAGE:**\n"
                 "   - Use tools for relevant queries\n"
