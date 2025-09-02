@@ -2,7 +2,7 @@
 Agent creation logic for conversational AI with document search and memory.
 Creates intelligent agents that can reason about when to use different tools and data sources.
 """
-from langchain.agents import AgentExecutor, Tool, create_tool_calling_agent
+from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from .tools import TOOLS
 from config import Config

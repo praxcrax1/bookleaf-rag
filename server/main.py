@@ -3,7 +3,6 @@ import uvicorn
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_pinecone import PineconeVectorStore
 
 from config import config
 from document.processor import DocumentProcessor
@@ -11,7 +10,7 @@ from vector_store.manager import VectorStoreManager
 from agent.agent_factory import create_agent
 from models.schemas import UploadRequest, QueryRequest, UploadResponse, QueryResponse, RegisterRequest, LoginRequest, AuthResponse
 from auth.auth import get_current_user
-from database.mongo import get_user_books, register_user, authenticate_user
+from database.mongo import register_user, authenticate_user
 from jose import jwt
 import asyncio
 
