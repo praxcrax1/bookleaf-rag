@@ -8,6 +8,8 @@ from .tools import TOOLS
 from config import Config
 from langchain.chains.conversation.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,8 +33,16 @@ def create_agent(user_id=None):
         # Bind tools to the model
         llm_with_tools = model.bind_tools(TOOLS)
 
+        message_history = MongoDBChatMessageHistory(
+            connection_string=config.mongo_uri,
+            session_id=str(user_id),
+            database_name=config.db_name,
+            collection_name="chat_histories"
+        )
+
         # Set up in-memory conversation history (can be replaced with MongoDB)
         memory = ConversationBufferMemory(
+            chat_memory=message_history,
             memory_key="chat_history",
             return_messages=True
         )

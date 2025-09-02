@@ -10,7 +10,7 @@ from vector_store.manager import VectorStoreManager
 from agent.agent_factory import create_agent
 from models.schemas import UploadRequest, QueryRequest, UploadResponse, QueryResponse, RegisterRequest, LoginRequest, AuthResponse
 from auth.auth import get_current_user
-from database.mongo import register_user, authenticate_user
+from database.mongo import register_user, authenticate_user, db
 from jose import jwt
 import asyncio
 
@@ -123,6 +123,30 @@ async def login_endpoint(request: LoginRequest):
     payload = {"user_id": str(user.get("author_id", "")), "email": user["email"]}
     token = jwt.encode(payload, config.jwt_secret, algorithm=config.jwt_algorithm)
     return AuthResponse(success=True, message="Login successful", token=token)
+
+
+@app.delete("/query/delete")
+async def delete_chat_history(current_user: dict = Depends(get_current_user)):
+    """Delete all chat history for the authenticated user."""
+    try:
+        user_id = current_user.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found in token")
+        
+        # Delete chat history from MongoDB collection
+        chat_histories_collection = db["chat_histories"]
+        result = await chat_histories_collection.delete_many({"SessionId": str(user_id)})
+        
+        deleted_count = result.deleted_count
+        if deleted_count == 0:
+            return {"status": "not_found", "message": "No chat history found for user."}
+        
+        logger.info(f"Deleted {deleted_count} chat history records for user {user_id}")
+        return {"status": "success", "message": f"Deleted {deleted_count} chat history records."}
+        
+    except Exception as e:
+        logger.error(f"Error deleting chat history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
