@@ -84,7 +84,7 @@ def create_agent(user_id=None, query=None):
             connection_string=config.mongo_uri,
             session_id=user_id,
             database_name=config.db_name,
-            collection_name="customer_care_histories"
+            collection_name="chat_histories"
         )
 
         # Conversation memory with message history

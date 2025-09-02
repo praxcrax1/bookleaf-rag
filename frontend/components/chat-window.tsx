@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,6 +29,14 @@ export function ChatWindow() {
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (sending) {
+      queueMicrotask(() => {
+        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
+      })
+    }
+  }, [sending])
 
   async function sendMessage() {
     const question = input.trim()
@@ -219,6 +227,23 @@ export function ChatWindow() {
                 ) : null}
               </li>
             ))}
+
+            {sending ? (
+              <li className="rounded-md border bg-white p-3">
+                <span className="sr-only">Assistant is typing…</span>
+                <div className="flex items-center gap-2" aria-hidden="true">
+                  <div className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <div
+                    className="h-2 w-2 rounded-full bg-slate-400 animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <div
+                    className="h-2 w-2 rounded-full bg-slate-400 animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </div>
+              </li>
+            ) : null}
           </ul>
         )}
       </div>
