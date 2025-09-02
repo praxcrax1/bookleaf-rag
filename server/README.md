@@ -116,7 +116,6 @@ Register a new user account.
 {
   "email": "user@example.com",
   "password": "securepassword123",
-  "author_id": "unique_author_identifier"
 }
 ```
 
@@ -127,7 +126,6 @@ curl -X POST "http://localhost:8000/register" \
   -d '{
     "email": "john.doe@example.com",
     "password": "mySecurePassword123",
-    "author_id": "john_doe_001"
   }'
 ```
 
@@ -136,7 +134,7 @@ curl -X POST "http://localhost:8000/register" \
 {
   "success": true,
   "message": "User registered successfully",
-  "token": null
+  "token": "JWT"
 }
 ```
 
@@ -257,43 +255,21 @@ curl -X POST "http://localhost:8000/query" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -d '{
     "question": "What are the benefits of the Bestseller Breakthrough Package?",
-    "verbose": true
   }'
 ```
 
-**Success Response (verbose=false):**
-```json
-{
-  "answer": "The Bestseller Breakthrough Package includes 5 free author copies, free shipping for Indian authors, a 20% discount coupon code for future orders, and priority customer support. The package also provides enhanced marketing materials and promotional tools to help boost your book's visibility.",
-  "query": "What are the benefits of the Bestseller Breakthrough Package?",
-  "reasoning_steps": null,
-  "success": true,
-  "confidence_score": null,
-  "sources_used": null
-}
-```
-
-**Success Response (verbose=true):**
+**Success Response**
 ```json
 {
   "answer": "The Bestseller Breakthrough Package includes 5 free author copies, free shipping for Indian authors, a 20% discount coupon code for future orders, and priority customer support.",
   "query": "What are the benefits of the Bestseller Breakthrough Package?",
   "reasoning_steps": [
-    {
-      "tool": "document_retrieval_tool",
-      "input": {
-        "query": "Bestseller Breakthrough Package benefits"
-      },
-      "output": "Retrieved 3 relevant document chunks about package benefits..."
-    },
-    {
-      "tool": "user_book_summary_tool",
-      "input": {
-        "user_query": "package benefits"
-      },
-      "output": "Found user-specific book information and package details..."
-    }
-  ],
+        {
+            "tool": "faq_and_support",
+            "input": "benefits of Bestseller Breakthrough Package",
+            "output": "The Bestseller Breakthrough Package includes the following benefits:\n\n*   **Author Copies:** Dispatched 15–20 business days after your book goes live on all platforms, shipped directly to your registered address (complimentary copies not provided to International authors).\n*   **21st Century Emily Dickinson Award:** This prestigious award is included.\n*   **Global Publication & Distribution:** Your book is published globally and made available across multiple premium platforms, including all 13 ..."
+        }
+    ],
   "success": true,
   "confidence_score": null,
   "sources_used": null

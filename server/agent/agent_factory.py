@@ -82,7 +82,7 @@ def create_agent(user_id=None, query=None):
         # Set up MongoDB message history for conversation continuity
         message_history = MongoDBChatMessageHistory(
             connection_string=config.mongo_uri,
-            session_id=f"customer_care_{user_id}",
+            session_id=user_id,
             database_name=config.db_name,
             collection_name="customer_care_histories"
         )
