@@ -3,8 +3,8 @@ Tool wrappers for LangChain agent integration.
 Wraps the validation agent and other tools for use in the main agent.
 """
 from langchain.tools import Tool
-from validation_agent import ValidationAgent
-from vector_store import VectorStoreManager
+from validation.validation_agent import ValidationAgent
+from vector_store.manager import VectorStoreManager
 from config import Config
 from langchain_pinecone import PineconeVectorStore
 

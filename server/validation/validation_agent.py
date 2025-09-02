@@ -8,7 +8,7 @@ import operator
 import time
 import logging
 from config import Config
-from enhanced_retriever import PackageAwareRetriever
+from validation.enhanced_retriever import PackageAwareRetriever
 
 # Configure logging
 logging.basicConfig(

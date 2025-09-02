@@ -3,13 +3,13 @@ import uvicorn
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, HttpUrl
 from langchain_pinecone import PineconeVectorStore
 
 from config import config
-from document_processor import DocumentProcessor
-from vector_store import VectorStoreManager
-from agent import create_agent
+from document.processor import DocumentProcessor
+from vector_store.manager import VectorStoreManager
+from agent.agent_factory import create_agent
+from models.schemas import UploadRequest, QueryRequest, UploadResponse, QueryResponse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -95,25 +95,6 @@ app.add_middleware(
 
 # Global system instance - connects to Pinecone on startup
 rag_system = SimpleRAGSystem()
-
-# Pydantic models for API requests and responses
-class UploadRequest(BaseModel):
-    """Request model for document upload endpoint"""
-    doc_url: HttpUrl
-    
-class QueryRequest(BaseModel):
-    """Request model for query endpoint"""
-    question: str
-
-class UploadResponse(BaseModel):
-    """Response model for document upload endpoint"""
-    success: bool
-    message: str
-
-class QueryResponse(BaseModel):
-    """Response model for query endpoint"""
-    answer: str
-    success: bool
 
 
 @app.get("/")
