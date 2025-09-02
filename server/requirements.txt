@@ -16,3 +16,6 @@ pydantic
 langchain-community
 nltk
 scikit-learn
+python-jose
+pydantic[email]
+passlib[bcrypt]

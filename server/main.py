@@ -1,7 +1,7 @@
 import logging
 import uvicorn
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_pinecone import PineconeVectorStore
 
@@ -9,7 +9,11 @@ from config import config
 from document.processor import DocumentProcessor
 from vector_store.manager import VectorStoreManager
 from agent.agent_factory import create_agent
-from models.schemas import UploadRequest, QueryRequest, UploadResponse, QueryResponse
+from models.schemas import UploadRequest, QueryRequest, UploadResponse, QueryResponse, RegisterRequest, LoginRequest, AuthResponse
+from auth.auth import get_current_user
+from database.mongo import get_user_books, register_user, authenticate_user
+from jose import jwt
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -115,14 +119,61 @@ async def upload_document(request: UploadRequest):
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
-    """Query the RAG system with a question"""
+async def query_documents(request: QueryRequest, current_user: dict = Depends(get_current_user)):
+    """Query the RAG system with a question (auth required)"""
+    query = request.question.strip()
+    if not query:
+        raise HTTPException(
+            status_code=400,
+            detail="Query cannot be empty"
+        )
+    author_id = current_user.get("user_id")
+    user_books = await get_user_books(author_id)
     try:
-        answer = rag_system.query(request.question)
-        return QueryResponse(answer=answer, success=True)
+        logger.info(f"Query request: {query[:100]} for user {author_id}")
+        response = await asyncio.to_thread(
+            rag_system.agent_executor.invoke,
+            {"input": query}
+        )
+        answer = response.get("output", "I apologize, but I couldn't generate a response.")
+        intermediate_steps = response.get("intermediate_steps", []) if getattr(request, "verbose", False) else []
+        reasoning_steps = []
+        if request.verbose and intermediate_steps:
+            for step in intermediate_steps:
+                if len(step) >= 2:
+                    action = step[0]
+                    observation = step[1]
+                    reasoning_steps.append({
+                        "tool": getattr(action, 'tool', "unknown"),
+                        "input": getattr(action, 'tool_input', {}),
+                        "output": observation[:500] + "..." if len(str(observation)) > 500 else str(observation)
+                    })
+        logger.info("Successfully processed query request")
+        return QueryResponse(
+            answer=answer,
+            query=query,
+            reasoning_steps=reasoning_steps if request.verbose else None,
+            success=True
+        )
     except Exception as e:
         logger.error(f"API query error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/register", response_model=AuthResponse)
+async def register_endpoint(request: RegisterRequest):
+    success, message = await register_user(request.email, request.password, request.author_id)
+    return AuthResponse(success=success, message=message)
+
+@app.post("/login", response_model=AuthResponse)
+async def login_endpoint(request: LoginRequest):
+    user = await authenticate_user(request.email, request.password)
+    if not user:
+        return AuthResponse(success=False, message="Invalid credentials")
+    # Issue JWT token
+    payload = {"user_id": str(user.get("author_id", "")), "email": user["email"]}
+    token = jwt.encode(payload, config.jwt_secret, algorithm=config.jwt_algorithm)
+    return AuthResponse(success=True, message="Login successful", token=token)
 
 
 if __name__ == "__main__":

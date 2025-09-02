@@ -31,4 +31,13 @@ class Config:
     # Validation settings
     confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.8"))
 
+    # JWT/Auth settings
+    jwt_secret: str = os.getenv("JWT_SECRET", "your-secret-key")
+    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+
+    # MongoDB settings
+    mongo_uri: str = os.getenv("MONGO_URI", "mongodb+srv://<username>:<password>@<cluster-url>/books?retryWrites=true&w=majority")
+    db_name: str = os.getenv("DB_NAME", "books")
+    collection_name: str = os.getenv("COLLECTION_NAME", "books")
+
 config = Config()
