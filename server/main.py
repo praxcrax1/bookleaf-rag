@@ -19,68 +19,9 @@ import asyncio
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class SimpleRAGSystem:
-    def __init__(self):
-        """Initialize the RAG system with required components"""
-        self.processor = DocumentProcessor(config)
-        self.vector_store_manager = VectorStoreManager(config)
-        self.agent_executor = create_agent()
-        # Initialize system state
-        self.vector_store = None
-        self.retriever = None
-        # Connect to existing index on startup
-        self._setup_system()
-    
-    def _initialize_components(self, vector_store: PineconeVectorStore) -> bool:
-        """Initialize or update retriever and agent components from vector store"""
-        try:
-            self.vector_store = vector_store
-            self.retriever = self.vector_store_manager.get_retriever(self.vector_store)
-            return True
-        except Exception as e:
-            logger.error(f"Component initialization error: {e}")
-            return False
-    
-    def _setup_system(self) -> None:
-        """Setup the system by connecting to existing Pinecone index"""
-        try:
-            vector_store = PineconeVectorStore.from_existing_index(
-                index_name=config.index_name,
-                embedding=self.vector_store_manager.embeddings
-            )
-            if self._initialize_components(vector_store):
-                logger.info("System ready - connected to Pinecone index")
-        except Exception as e:
-            logger.error(f"Setup error: {e}")
-    
-    def upload_document(self, doc_url: str) -> bool:
-        """Process and upload a new document to Pinecone"""
-        try:
-            # Process document through pipeline
-            documents = self.processor.extract_google_doc(doc_url)
-            chunks = self.processor.hierarchical_chunking(documents)
-            enhanced_chunks = self.processor.enhance_metadata(chunks)
-            
-            # Store in Pinecone and initialize components
-            vector_store = self.vector_store_manager.store_documents(enhanced_chunks)
-            if self._initialize_components(vector_store):
-                logger.info("Document uploaded successfully")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Upload error: {e}")
-            return False
-    
-    def query(self, question: str) -> str:
-        """Query the documents using the new agent executor"""
-        if not self.agent_executor:
-            return "Agent not initialized. Please upload a document first."
-        try:
-            result = self.agent_executor.invoke({"input": question})
-            return result["output"] if "output" in result else str(result)
-        except Exception as e:
-            logger.error(f"Query error: {e}")
-            return f"Error processing query: {str(e)}"
+# Initialize components
+processor = DocumentProcessor(config)
+vector_store_manager = VectorStoreManager(config)
 
 app = FastAPI(
     title="RAG Document Q&A System",
@@ -97,9 +38,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global system instance - connects to Pinecone on startup
-rag_system = SimpleRAGSystem()
-
 
 @app.get("/")
 async def root():
@@ -110,12 +48,20 @@ async def root():
 @app.post("/upload", response_model=UploadResponse)
 async def upload_document(request: UploadRequest):
     """Upload a Google Doc to the Pinecone vector store"""
-    success = rag_system.upload_document(str(request.doc_url))
-    
-    return UploadResponse(
-        success=success, 
-        message="Document uploaded successfully!" if success else "Failed to upload document"
-    )
+    try:
+        # Process document through pipeline
+        documents = processor.extract_google_doc(str(request.doc_url))
+        chunks = processor.hierarchical_chunking(documents)
+        enhanced_chunks = processor.enhance_metadata(chunks)
+        
+        # Store in Pinecone
+        vector_store_manager.store_documents(enhanced_chunks)
+        logger.info("Document uploaded successfully")
+        
+        return UploadResponse(success=True, message="Document uploaded successfully!")
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        return UploadResponse(success=False, message=f"Failed to upload document: {str(e)}")
 
 
 @app.post("/query", response_model=QueryResponse)
@@ -123,19 +69,23 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
     """Query the RAG system with a question (auth required)"""
     query = request.question.strip()
     if not query:
-        raise HTTPException(
-            status_code=400,
-            detail="Query cannot be empty"
-        )
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
     user_id = current_user.get("user_id")
     try:
         logger.info(f"Query request: {query[:100]} for user {user_id}")
+        
+        # Create agent with user_id for this specific query
+        agent_executor = create_agent(user_id=user_id)
+        
         response = await asyncio.to_thread(
-            rag_system.agent_executor.invoke,
+            agent_executor.invoke,
             {"input": query}
         )
+        
         answer = response.get("output", "I apologize, but I couldn't generate a response.")
         intermediate_steps = response.get("intermediate_steps", []) if getattr(request, "verbose", False) else []
+        
         reasoning_steps = []
         if request.verbose and intermediate_steps:
             for step in intermediate_steps:
@@ -147,6 +97,7 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
                         "input": getattr(action, 'tool_input', {}),
                         "output": observation[:500] + "..." if len(str(observation)) > 500 else str(observation)
                     })
+        
         logger.info("Successfully processed query request")
         return QueryResponse(
             answer=answer,
