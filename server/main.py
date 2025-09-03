@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import config
 from document.processor import DocumentProcessor
 from vector_store.manager import VectorStoreManager
-from agent.enhanced_agent_factory import create_agent
+from agent.agent import create_agent_executor
 from models.schemas import UploadRequest, QueryRequest, UploadResponse, QueryResponse, RegisterRequest, LoginRequest, AuthResponse
 from auth.auth import get_current_user
 from database.mongo import register_user, authenticate_user, db
@@ -25,7 +25,7 @@ vector_store_manager = VectorStoreManager(config)
 app = FastAPI(
     title="RAG Document Q&A System",
     description="A robust RAG system with Pinecone, Gemini, and LangGraph React agents for intelligent document Q&A",
-    version="1.1.0"
+    version="2.0.0"
 )
 
 # Add CORS middleware
@@ -78,9 +78,8 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
     try:
         logger.info(f"Query request: {query[:100]} for user {user_id}")
         
-        # Create enhanced agent with user_id for this specific query
-        # The enhanced factory will automatically choose the best agent type
-        agent_executor = create_agent(user_id=user_id, query=query)
+        # Create LangGraph React agent
+        agent_executor = create_agent_executor(user_id=user_id)
         
         response = await asyncio.to_thread(
             agent_executor.invoke,
