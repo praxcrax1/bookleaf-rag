@@ -81,22 +81,78 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
         # Create LangGraph React agent
         agent_executor = create_agent_executor(user_id=user_id)
         
-        # Execute the agent directly
-        result = await asyncio.to_thread(
-            agent_executor.invoke,
-            {"messages": [("user", query)]}
-        )
+        # Stream the agent execution to capture intermediate steps
+        reasoning_steps = []
+        final_answer = ""
         
-        # Extract the response from LangGraph result
-        messages = result.get("messages", [])
-        answer = messages[-1].content if messages else "I apologize, but I couldn't generate a response."
+        def stream_and_collect():
+            nonlocal final_answer, reasoning_steps
+            
+            for chunk in agent_executor.stream(
+                {"messages": [("user", query)]},
+                stream_mode="updates"
+            ):
+                for node, update in chunk.items():
+                    logger.info(f"Node update from: {node}")
+                    
+                    if "messages" in update and update["messages"]:
+                        latest_message = update["messages"][-1]
+                        
+                        # Check if this is a tool call from the agent
+                        if hasattr(latest_message, 'tool_calls') and latest_message.tool_calls:
+                            for tool_call in latest_message.tool_calls:
+                                reasoning_steps.append({
+                                    "step": "tool_call",
+                                    "node": node,
+                                    "tool": tool_call.get("name", "unknown"),
+                                    "input": tool_call.get("args", {}),
+                                    "reasoning": f"Agent decided to use {tool_call.get('name', 'unknown')} tool"
+                                })
+                        
+                        # Check if this is a tool response
+                        elif hasattr(latest_message, 'content') and hasattr(latest_message, 'name'):
+                            # This is a ToolMessage
+                            if hasattr(latest_message, 'name'):
+                                tool_output = latest_message.content[:200] + "..." if len(latest_message.content) > 200 else latest_message.content
+                                reasoning_steps.append({
+                                    "step": "tool_response", 
+                                    "node": node,
+                                    "tool": latest_message.name,
+                                    "output": tool_output,
+                                    "reasoning": f"Tool {latest_message.name} returned results"
+                                })
+                        
+                        # Check if this is the final AI response
+                        elif node == "agent" and hasattr(latest_message, 'content') and not hasattr(latest_message, 'tool_calls'):
+                            final_answer = latest_message.content
+                            reasoning_steps.append({
+                                "step": "final_response",
+                                "node": node, 
+                                "reasoning": "Agent generated final response based on available information"
+                            })
+                        
+                        # Handle other AI messages
+                        elif hasattr(latest_message, 'content') and latest_message.content:
+                            final_answer = latest_message.content
         
-        logger.info(f"Successfully processed query request using LangGraph React agent")
+        # Execute the streaming in a thread
+        await asyncio.to_thread(stream_and_collect)
+        
+        # If no final answer was captured, fall back to getting the last message
+        if not final_answer:
+            result = await asyncio.to_thread(
+                agent_executor.invoke,
+                {"messages": [("user", query)]}
+            )
+            messages = result.get("messages", [])
+            final_answer = messages[-1].content if messages else "I apologize, but I couldn't generate a response."
+        
+        logger.info(f"Successfully processed query with {len(reasoning_steps)} reasoning steps")
 
         return QueryResponse(
-            answer=answer,
+            answer=final_answer,
             query=query,
-            reasoning_steps=None,  # LangGraph handles reasoning internally
+            reasoning_steps=reasoning_steps if reasoning_steps else None,
             success=True
         )
     except Exception as e:

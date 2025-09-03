@@ -12,9 +12,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 type ToolStep = {
-  tool: string
-  input?: string
+  step: string
+  node: string
+  tool: string | null
+  input?: any
   output?: string
+  reasoning?: string
 }
 
 type ChatMessage = {
@@ -67,15 +70,12 @@ export function ChatWindow() {
       const answer = data?.answer ?? "No answer returned."
       const tools: ToolStep[] | undefined = Array.isArray(data?.reasoning_steps)
         ? data.reasoning_steps.map((s: any) => ({
-            tool: String(s?.tool ?? s?.name ?? "tool"),
-            input:
-              typeof s?.input === "string" ? s.input : s?.input != null ? JSON.stringify(s.input, null, 2) : undefined,
-            output:
-              typeof s?.output === "string"
-                ? s.output
-                : s?.output != null
-                  ? JSON.stringify(s.output, null, 2)
-                  : undefined,
+            step: String(s?.step ?? "unknown"),
+            node: String(s?.node ?? "unknown"),
+            tool: s?.tool ? String(s.tool) : null,
+            input: s?.input != null ? (typeof s.input === "string" ? s.input : JSON.stringify(s.input, null, 2)) : undefined,
+            output: typeof s?.output === "string" ? s.output : s?.output != null ? JSON.stringify(s.output, null, 2) : undefined,
+            reasoning: s?.reasoning ? String(s.reasoning) : undefined,
           }))
         : undefined
 
@@ -191,17 +191,45 @@ export function ChatWindow() {
                 {m.role === "assistant" && m.tools && m.tools.length > 0 ? (
                   <Accordion type="single" collapsible className="mt-3">
                     <AccordionItem value={`tools-${m.id}`}>
-                      <AccordionTrigger className="text-sm">{"Tools used (" + m.tools.length + ")"}</AccordionTrigger>
+                      <AccordionTrigger className="text-sm">{"Reasoning steps (" + m.tools.length + ")"}</AccordionTrigger>
                       <AccordionContent>
                         <ul className="space-y-3">
                           {m.tools.map((t, idx) => (
                             <li key={idx} className="rounded-md border bg-slate-50 p-3">
-                              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                                Tool
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div>
+                                  <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Step
+                                  </div>
+                                  <div className="text-sm font-medium text-slate-900">{t.step}</div>
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Node
+                                  </div>
+                                  <div className="text-sm font-medium text-slate-900">{t.node}</div>
+                                </div>
                               </div>
-                              <div className="mb-2 font-medium text-slate-900">{t.tool}</div>
 
-                              {t.input ? (
+                              {t.tool && (
+                                <div className="mb-2">
+                                  <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Tool
+                                  </div>
+                                  <div className="text-sm font-medium text-slate-900">{t.tool}</div>
+                                </div>
+                              )}
+
+                              {t.reasoning && (
+                                <div className="mb-2">
+                                  <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                                    Reasoning
+                                  </div>
+                                  <div className="text-sm text-slate-700">{t.reasoning}</div>
+                                </div>
+                              )}
+
+                              {t.input && (
                                 <div className="mb-2">
                                   <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
                                     Input
@@ -210,9 +238,9 @@ export function ChatWindow() {
                                     {t.input}
                                   </pre>
                                 </div>
-                              ) : null}
+                              )}
 
-                              {t.output ? (
+                              {t.output && (
                                 <div>
                                   <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
                                     Output
@@ -221,7 +249,7 @@ export function ChatWindow() {
                                     {t.output}
                                   </pre>
                                 </div>
-                              ) : null}
+                              )}
                             </li>
                           ))}
                         </ul>
