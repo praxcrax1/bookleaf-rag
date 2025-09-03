@@ -56,9 +56,9 @@ def create_agent_executor(user_id: str = None):
             - Platform features and capabilities
 
             **Use `user_book_summary_tool` for:**
+            - IMPORTANT:  use the {user_id} parameter to get personalized information
             - ALL personal queries about the user's account, books, or data
             - User-specific information: "My books", "My account status", "My writing progress"
-            - ALWAYS pass the user_id: {user_id} when making personal queries
             - Account-specific support and personalized information
 
             **RESPONSE GUIDELINES:**
