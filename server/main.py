@@ -89,6 +89,12 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
         answer = response.get("output", "I apologize, but I couldn't generate a response.")
         intermediate_steps = response.get("intermediate_steps", [])
         
+        # Safety check: If no tools were used but answer is provided, flag as potential hallucination
+        tools_used = len(intermediate_steps) > 0
+        if not tools_used and answer and "I don't" not in answer and "knowledge base" not in answer:
+            logger.warning(f"Potential hallucination detected for query: {query[:50]}")
+            answer = "I don't have specific information about that in our knowledge base. Please contact our support team for accurate information."
+        
         reasoning_steps = None
         if intermediate_steps:
             reasoning_steps = []

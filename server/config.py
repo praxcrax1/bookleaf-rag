@@ -20,6 +20,15 @@ class Config:
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "200"))
     batch_size: int = 100
     
+    # Multi-size chunking configuration for scattered knowledge
+    LARGE_CHUNK_SIZE: int = 1500
+    LARGE_CHUNK_OVERLAP: int = 300
+    MEDIUM_CHUNK_SIZE: int = 800
+    MEDIUM_CHUNK_OVERLAP: int = 200
+    SMALL_CHUNK_SIZE: int = 400
+    SMALL_CHUNK_OVERLAP: int = 100
+    CROSS_REF_WINDOW: int = 2
+
     # Retrieval settings
     top_k: int = int(os.getenv("TOP_K", "5"))
     score_threshold: float = float(os.getenv("SCORE_THRESHOLD", "0.7"))
