@@ -1,23 +1,36 @@
-langchain
-langchain-google-genai
-langchain-pinecone
+# Core LangGraph and LangChain Components
 langgraph
+langchain_google_genai
+langchain_pinecone
+langchain_community
+langchain_core
+langchain  # Still needed for text splitter and schemas
+
+# Google AI and Vector Store
 google-generativeai
 pinecone-client
-python-dotenv
-pypdf
-unstructured
-tiktoken
-PyPDF2
-requests
+
+# FastAPI and Web Components  
 fastapi
 uvicorn
 pydantic
-langchain-community
-nltk
-scikit-learn
-python-jose
 pydantic[email]
+
+# Authentication and Security
+python-jose
 passlib[bcrypt]
-langchain_mongodb
-motor
+
+# Database
+motor  # MongoDB async driver
+
+# Document Processing
+PyPDF2
+requests
+python-dotenv
+
+# Optional/Development (remove if not needed)
+# unstructured
+# tiktoken  
+# pypdf
+# nltk
+# scikit-learn

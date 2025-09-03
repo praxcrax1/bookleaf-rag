@@ -82,3 +82,4 @@ def user_book_summary_tool(
     except Exception as e:
         return f"I'm sorry, but I couldn't retrieve your book information at the moment. Please try again later or contact support if the issue persists."
 
+TOOLS = [user_book_summary_tool, document_retrieval_tool]

@@ -81,33 +81,22 @@ async def query_documents(request: QueryRequest, current_user: dict = Depends(ge
         # Create LangGraph React agent
         agent_executor = create_agent_executor(user_id=user_id)
         
-        response = await asyncio.to_thread(
+        # Execute the agent directly
+        result = await asyncio.to_thread(
             agent_executor.invoke,
-            {"input": query}
+            {"messages": [("user", query)]}
         )
         
-        answer = response.get("output", "I apologize, but I couldn't generate a response.")
-        intermediate_steps = response.get("intermediate_steps", [])
+        # Extract the response from LangGraph result
+        messages = result.get("messages", [])
+        answer = messages[-1].content if messages else "I apologize, but I couldn't generate a response."
         
-        reasoning_steps = None
-        if intermediate_steps:
-            reasoning_steps = []
-            for step in intermediate_steps:
-                if len(step) >= 2:
-                    action = step[0]
-                    observation = step[1]
-                    reasoning_steps.append({
-                        "tool": action.tool if hasattr(action, 'tool') else "unknown",
-                        "input": action.tool_input if hasattr(action, 'tool_input') else {},
-                        "output": observation[:500] + "..." if len(str(observation)) > 500 else str(observation)
-                    })
-        
-        logger.info(f"Successfully processed query request using {type(agent_executor).__name__}")
+        logger.info(f"Successfully processed query request using LangGraph React agent")
 
         return QueryResponse(
             answer=answer,
             query=query,
-            reasoning_steps=reasoning_steps,
+            reasoning_steps=None,  # LangGraph handles reasoning internally
             success=True
         )
     except Exception as e:
@@ -138,106 +127,6 @@ async def login_endpoint(request: LoginRequest):
     payload = {"user_id": user_id, "email": user["email"]}
     token = jwt.encode(payload, config.jwt_secret, algorithm=config.jwt_algorithm)
     return AuthResponse(success=True, message="Login successful", token=token)
-
-
-@app.delete("/query/delete")
-async def delete_chat_history(current_user: dict = Depends(get_current_user)):
-    """Delete all chat history for the authenticated user."""
-    try:
-        user_id = current_user.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code=400, detail="User ID not found in token")
-        
-        # Delete chat history from MongoDB collection
-        chat_histories_collection = db["chat_histories"]
-        result = await chat_histories_collection.delete_many({"SessionId": str(user_id)})
-        
-        deleted_count = result.deleted_count
-        if deleted_count == 0:
-            return {"status": "not_found", "message": "No chat history found for user."}
-        
-        logger.info(f"Deleted {deleted_count} chat history records for user {user_id}")
-        return {"status": "success", "message": f"Deleted {deleted_count} chat history records."}
-        
-    except Exception as e:
-        logger.error(f"Error deleting chat history: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/query/advanced", response_model=QueryResponse)
-async def query_documents_advanced(
-    request: QueryRequest, 
-    current_user: dict = Depends(get_current_user),
-    agent_type: str = "auto"  # Options: "auto", "langchain", "langgraph", "hybrid"
-):
-    """
-    Query the RAG system with explicit agent backend selection (auth required)
-    
-    Args:
-        request: Query request with question
-        current_user: Authenticated user info
-        agent_type: Agent backend to use:
-            - "auto": Automatic selection based on environment/defaults
-            - "langchain": Force LangChain agent
-            - "langgraph": Force LangGraph React agent
-            - "hybrid": Use intelligent hybrid selection
-    """
-    query = request.question.strip()
-    if not query:
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
-    
-    user_id = current_user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=400, detail="User ID not found in token")
-    
-    try:
-        logger.info(f"Advanced query request: {query[:100]} for user {user_id} with agent_type: {agent_type}")
-        
-        # Import specific factory functions
-        from agent.enhanced_agent_factory import create_agent, create_hybrid_agent
-        
-        # Create agent based on specified type
-        if agent_type == "hybrid":
-            agent_executor = create_hybrid_agent(user_id=user_id, query=query)
-        elif agent_type == "langchain":
-            agent_executor = create_agent(user_id=user_id, query=query, use_langgraph=False)
-        elif agent_type == "langgraph":
-            agent_executor = create_agent(user_id=user_id, query=query, use_langgraph=True)
-        else:  # "auto" or any other value
-            agent_executor = create_agent(user_id=user_id, query=query)
-        
-        response = await asyncio.to_thread(
-            agent_executor.invoke,
-            {"input": query}
-        )
-        
-        answer = response.get("output", "I apologize, but I couldn't generate a response.")
-        intermediate_steps = response.get("intermediate_steps", [])
-        
-        reasoning_steps = None
-        if intermediate_steps:
-            reasoning_steps = []
-            for step in intermediate_steps:
-                if len(step) >= 2:
-                    action = step[0]
-                    observation = step[1]
-                    reasoning_steps.append({
-                        "tool": action.tool if hasattr(action, 'tool') else "unknown",
-                        "input": action.tool_input if hasattr(action, 'tool_input') else {},
-                        "output": observation[:500] + "..." if len(str(observation)) > 500 else str(observation)
-                    })
-        
-        logger.info(f"Successfully processed advanced query using {type(agent_executor).__name__} (requested: {agent_type})")
-
-        return QueryResponse(
-            answer=answer,
-            query=query,
-            reasoning_steps=reasoning_steps,
-            success=True
-        )
-    except Exception as e:
-        logger.error(f"Advanced API query error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/query/delete")
